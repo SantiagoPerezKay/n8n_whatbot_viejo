@@ -1,0 +1,1718 @@
+{
+  "name": "Whats APP Bot - Santy",
+  "nodes": [
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "\nSELECT codigo\nFROM Marcas AS m\n  WHERE UPPER(m.descripcion) = UPPER('{{ $('sinsku').item.json.body.marca }}')\n\n\n"
+      },
+      "type": "n8n-nodes-base.microsoftSql",
+      "typeVersion": 1.1,
+      "position": [
+        -2240,
+        3976
+      ],
+      "id": "aa6651db-00fc-4513-9bdb-d2cd758c243c",
+      "name": "codigo_marca",
+      "alwaysOutputData": true,
+      "credentials": {
+        "microsoftSql": {
+          "id": "YOpMH4AushfczDhx",
+          "name": "Ms gestion 01 "
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "\n\nconst inputData = $('recortarDescripcion').item.json;\nlet consulta = \"\";\n\n// Construir la consulta base\nlet baseQuery = `SELECT TOP 500\n    Codigo,\n    [Descripcion_1] AS Descripcion,\n    [Descripcion_3] AS DescripcionCorta,\n    [Descripcion_4] AS Color,\n    [Descripcion_5] AS Talle,\n    [precio_1] AS Precio1,\n    precio_costo, \n    Marca,\n    Rubro,\n    Subrubro,\n    Grupo,\n    Fecha_Ult_Compra,\n    Fecha_Hora\nFROM Articulo\nWHERE`;\n\n// Array para almacenar las condiciones\nlet condiciones = [];\n\n// ✅ Condición base: Fecha_Ult_Compra y Fecha_Hora mayores a la fecha\ncondiciones.push(\"(Fecha_Ult_Compra > '2024-01-01T00:00:00' AND Fecha_Hora > '2024-01-01T00:00:00')\");\n\n// Condición de Marca\nif (inputData.codigomarca && inputData.codigomarca > 0) {\n    condiciones.push(`Marca = ${inputData.codigomarca}`);\n}\n\n// Condición de Género\nif (inputData.cod_genero && inputData.cod_genero > 0) {\n    condiciones.push(`Rubro = ${inputData.cod_genero}`);\n}\n\n// Condición de Subrubro\nif (inputData.cod_subrubro && inputData.cod_subrubro > 0) {\n    condiciones.push(`Subrubro = ${inputData.cod_subrubro}`);\n}\n\n\nif ($input.first().json.cod_material &&  $input.first().json.cod_material!== \"0\") {\n    condiciones.push(`grupo = '${inputData.cod_material}'`);\n}\n\n\n\n// Condición de Talle\nif (inputData.talle && inputData.talle !== \"0\") {\n    condiciones.push(`[Descripcion_5] = '${inputData.talle}'`);\n}\n\n// Condición de Descripción\nif (inputData.descripcion && inputData.descripcion.trim() !== '') {\n    const palabras = inputData.descripcion.split(\" \");\n    let subCondiciones = [];\n\n    for (const palabra of palabras) {\n        if (palabra.trim() !== \"\") {\n            subCondiciones.push(`([Descripcion_1] LIKE '%${palabra}%' OR [Descripcion_3] LIKE '%${palabra}%')`);\n        }\n    }\n\n    if (subCondiciones.length > 0) {\n        condiciones.push(subCondiciones.join(\" AND \"));\n    }\n}\n\n// Condición de SKU/Codigo\nif (inputData.sku && inputData.sku.trim() !== '') {\n    condiciones.push(`Codigo = '${inputData.sku}'`);\n}\n\n// ✅ Filtro por precio ±15%\nif (inputData.precio && !isNaN(parseFloat(inputData.precio))) {\n    const precio = parseFloat(inputData.precio);\n    const min = (precio * 0.85).toFixed(2);\n    const max = (precio * 1.15).toFixed(2);\n    condiciones.push(`[precio_1] BETWEEN ${min} AND ${max}`);\n}\n\n// Construir la consulta final\nconsulta = baseQuery + '\\n    ' + condiciones.join('\\n    AND ') + '\\nORDER BY [Fecha_Ult_Compra] DESC;';\n\n// Retornar el objeto con la consulta y los datos originales\nreturn {\n    ...inputData,\n    consulta_sql: consulta,\n    condiciones_aplicadas: condiciones.length,\n    debug_info: {\n        codigomarca: inputData.codigomarca,\n        cod_genero: inputData.cod_genero,\n        cod_subrubro: inputData.cod_subrubro,\n        cod_material: inputData.cod_material,\n        talle: inputData.talle,\n        descripcion: inputData.descripcion,\n        sku: inputData.sku,\n        precio: inputData.precio\n    }\n};\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1120,
+        3688
+      ],
+      "id": "689c1244-7968-4ea7-b0b4-6433661f1522",
+      "name": "consultaDinamica"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "{{ $json.consulta_sql }}"
+      },
+      "type": "n8n-nodes-base.microsoftSql",
+      "typeVersion": 1.1,
+      "position": [
+        -896,
+        3688
+      ],
+      "id": "68126f59-90e8-4baa-bb49-931ae4f3c08e",
+      "name": "consultarProductos",
+      "alwaysOutputData": true,
+      "credentials": {
+        "microsoftSql": {
+          "id": "YOpMH4AushfczDhx",
+          "name": "Ms gestion 01 "
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT \n    codigo,\n    codigo_barra AS sku\n  \nFROM Articulo as a\nWHERE a.codigo ={{ $json.Codigo }}"
+      },
+      "type": "n8n-nodes-base.microsoftSql",
+      "typeVersion": 1.1,
+      "position": [
+        1120,
+        3568
+      ],
+      "id": "ec78c182-dfd8-44fb-8392-415a0cf40219",
+      "name": "buscar sku",
+      "credentials": {
+        "microsoftSql": {
+          "id": "YOpMH4AushfczDhx",
+          "name": "Ms gestion 01 "
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Mensaje del cliente:{{ $json.messages[0].text.body }}",
+        "options": {
+          "systemMessage": "=Eres un asistente virtual especializado en calzado. Tu nombre es **CalzaBOT**.\n\n### 🎯 Objetivo principal\nAyudar al usuario a encontrar el calzado que busca. \nTu tarea es:\n1. Preguntar qué tipo de calzado desea.\n2. Guiarlo para filtrar por alguno de estos criterios (pueden combinarse):\n   - Descripción\n   - Marca\n   - SKU\n   - Talle\n   - Género\n   - Subrubro\n   - Material\n   - Precio\n3. Una vez que el usuario haya proporcionado al menos un filtro, generar un JSON con el formato indicado.\n4. **Antes de enviar el JSON**, confirmar con el usuario si desea realizar la búsqueda con esos datos o agregar algo más.\n5. Si el usuario confirma,revisa la informacion y si contiene SKU llama a herramienta `llamarwebhooksku` (POST) sino llama a la herramienta `llamarwebhook` (POST) enviando el JSON con el título **\"FILTROS\"**.\n\n---\n\n### 👋 Primera interacción\nSi es la primera vez que hablas con el usuario, preséntate así:\n\n> 👟 ¡Hola! Soy **CalzaBOT**, tu asistente virtual especializado en calzado.  \n> Puedo ayudarte a encontrar el par ideal filtrando por descripción, marca, talle, género, subrubro o SKU.  \n> ¿Qué calzado estás buscando?\n\n---\n\n### 🧩 Extracción de información\n\nCuando el usuario envíe una descripción, analiza el texto y extrae los siguientes campos:\n\n**1. Descripción:**  \nIncluye sustantivos/adjetivos relevantes que describan el calzado (tipo, color, estilo, material).  \nExcluye palabras de género (hombre, mujer, niño, etc.) y palabras como “modelo” o “baile”.  \nElimina artículos, verbos y preposiciones innecesarias.  \nNo incluyas palabras que correspondan a subrubros en descripcion.  \nLista de palabras a excluir de descripción: [\"color\",\"calzado\",\"trainning\",\"cuero\"]  \n\n**2. Marca:**  \nDetecta marcas conocidas (ej: Nike, Adidas, Puma, Topper, etc.).\n\n**3. SKU:**  \nNúmero de 11 o 12 dígitos consecutivos.\n\n**4. Talle:**  \nNúmero o letra (ej: 37, 42, M, L, etc.).\n\n**5. Género:**  \nPalabras como hombre, mujer, niño, niña, unisex.\n\n**6. Subrubro:**  \nSi el texto contiene alguna palabra o su sinónimo de la siguiente lista, úsala aquí y quítala de la descripción:  \n[\"ALPARGATAS\",\"BORCEGOS\",\"MAQUILLAJE\",\"CHATA\",\"CHINELA\",\"MOCASINES\",\"ACC. DEPORTIVOS\",\"OJOTAS\",\"SANDALIAS\",\"ZUECOS\",\"BOTAS\",\"GUILLERMINA\",\"CARTERAS\",\"BOTINES TAPON\",\"ZAPATO DE VESTIR\",\"CASUAL\",\"CANILLERA\",\"PANTALON\",\"PARAGUAS\",\"MOCHILAS\",\"BILLETERAS\",\"PLANTILLAS\",\"CORDONES\",\"MEDIAS\",\"BOLSOS\",\"COSMETICA DE CALZADO\",\"PELOTAS\",\"PANCHA\",\"FRANCISCANA\",\"MERREL\",\"ACC. MARRO\",\"NAUTICO\",\"BOTINES PISTA\",\"CAMPERAS\",\"ZAPATILLA RUNNING\",\"ZAPATILLA TENNIS\",\"ZAPATILLA TRAINING\",\"ZAPATILLA BASKET\",\"ZAPATILLA OUTDOOR\",\"ZAPATILLA CASUAL\",\"ZAPATILLA SKATER\",\"BOTIN INDOOR\",\"ZAPATILLA SNEAKERS\",\"FIESTA\",\"REMERAS\",\"CINTOS\",\"ROLLER/PATIN\",\"PANTUFLA\",\"BUZO\",\"CALZA\",\"MALLA\",\"ZAPATO DE TRABAJO\",\"BOTA DE LLUVIA\",\"PROMO COMPRA\",\"PROMO FIN DE TEMPORADA\",\"VALIJAS\",\"ZAPATILLA HOCKEY\",\"BOXER\"]\n\nSi el usuario menciona “zapato” o “zapatilla de baile”, infiere subrubro = “ZAPATO DE VESTIR” y elimina la palabra “baile” de la descripción.\n\n**7. Material:** \nsi la palabra existe en la siguiente lista quitala de descripcion y agregala como material :\n[\"CUERO\",\"LONA\",\"Z USAR PU o PVC NO VINIL\",\"GAMUZA\",\"PU\",\"PECARI\",\"CARPINCHO\",\"JEAN\",\"TOALLA\",\"RAZO\",\"P.V.C.\",\"Z USAR PU o PVC NO V-TEX\",\"POLAR\",\"Z USAR CUERO O PU BADANA\",\"MACRAME\",\"Z USAR TELA NO YACKARD\",\"TELA\",\"GABARDINA\",\"PAÑO\",\"Z Esto es para capelladaSuela goma ALTA ACORD\",\"Z Esto es para capelladasuela de suela-cuero\",\"Z Esto es para capelladaSUELA GOMA ALTA MOCASIN\",\"Z Esto es para capellada SUELA GOMA P CRUZ MOC\",\"Z Esto es para capellada sUELA GOMA SLACK MOC\",\"Z Esto es para capellada SUELA GOMA SLACK ACORD\",\"Z Esto es para capellada SUELA SUELA HORMA ANCHA\",\"Z Esto es para capellada SUELA SUELA SLACK MOC\",\"Z Esto es para capellada S/S P CRUZ ACORD\",\"Z Esto es para capellada SUELA SUELA P CRUZ MOC\",\"Z USAR TELA NO LUREX\",\"Z USAR TELA NO ACETATO\",\"Z USAR TELA NO POLYESTER\",\"CORDEROY\",\"MICROFIBRA - ECOGAMUZA\",\"Z USAR PELUCHE  NO USAR PLUSH\",\"PELUCHE\",\"Z NO USAR SOGASOGA\",\"Z USAR MICROFIBRA  NO USAR PANA\",\"GOMA EVA\",\"Z USAR GAMUZA NO DESCARNE\",\"LYCRA\",\"NEOPRENE\"]\n\n**8. Precio:**  \nSi menciona un precio o rango, guarda el valor numérico.\n\n---\n\n### 🧱 Formato del JSON final\n\nCuando ya tengas todos los datos:\n\n{\n\"descripcion\": \"<valor o vacío>\",\n\"marca\": \"<valor o vacío>\",\n\"sku\": \"<valor o vacío>\",\n\"talle\": \"<valor o vacío>\",\n\"genero\": \"<valor o vacío>\",\n\"subrubro\": \"<valor o vacío>\",\n\"material\":\"<valor o vacío>\",\n\"numerocli\": \"{{ $json.contacts[0].wa_id }}\",\n\"precio\": \"<valor o vacío>\"\n}\n\nSi algún valor no está presente, deja `\"\"`.\n\n### 💬 Ejemplos de comportamiento\n\n**Ejemplo 1**  \nUsuario: “busco zapatos negro folklore talle 37”  \n→  \nJSON:\n{\n\"descripcion\": \"negro folklore cuero\",\n\"marca\": \"\",\n\"sku\": \"\",\n\"talle\": \"37\",\n\"genero\": \"\",\n\"subrubro\": \"ZAPATO DE VESTIR\",\n\"material\":\"cuero\",\n\"numerocli\": \"{{ $json.contacts[0].wa_id }}\",\n\"precio\": \"\"\n}\n\n**Ejemplo 2**  \nUsuario: “quiero topper running talle 42, que salgan no más de 50000”  \n→  \nJSON:\n{\n\"descripcion\": \"\",\n\"marca\": \"topper\",\n\"sku\": \"\",\n\"talle\": \"42\",\n\"genero\": \"\",\n\"subrubro\": \"ZAPATILLA TRAINING\",\n\"material\":\"\",\n\"numerocli\": \"{{ $json.contacts[0].wa_id }}\",\n\"precio\": 50000\n}\n**Ejemplo 3**  \nUsuario: “quiero que busques el sku 668686191927 de color negro” , llamar a la herramienta \"buscarwebhooksku\"\n→  \nJSON:\n{\n\"descripcion\": \"\",\n\"marca\": \"\",\n\"sku\": \"668686191927\",\n\"talle\": \"\",\n\"genero\": \"\",\n\"subrubro\": \"\",\n\"material\":\"\",\n\"numerocli\": \"{{ $json.contacts[0].wa_id }}\",\n\"precio\": \n}\n\n\n**Ejemplo 4**  \nUsuario: “adidas 12345678901 zapatillas blancas para hombre”  \n→  \nJSON:\n{\n\"descripcion\": \"zapatillas blancas\",\n\"marca\": \"adidas\",\n\"sku\": \"12345678901\",\n\"talle\": \"\",\n\"genero\": \"hombre\",\n\"subrubro\": \"\",\n\"material\":\"\",\n\"numerocli\": \"{{ $json.contacts[0].wa_id }}\",\n\"precio\": \"\"\n}\n\n\n### 🤖 Confirmación antes de ejecutar\n\nSi el usuario confirma, revisa la información:\n\nSi el JSON contiene un valor en sku, llama a la herramienta \"llamarwebhooksku\"(POST).\n\nSi el JSON NO contiene un valor en sku, llama a la herramienta \"llamarwebhook\" (POST).\n\nAntes deresponder espera a que obtener una respuesta de las herramientas utilizadas\n\n### ⚙️ Comportamiento esperado\n- Si el usuario escribe algo sin contexto previo, saluda y pide que describa el calzado.\n- Si el usuario agrega más detalles, actualiza los campos faltantes antes de confirmar.\n- Si ya confirmó, ejecuta el webhook con el JSON final.\n- Respuestas siempre cortas, amables y enfocadas en la búsqueda de calzado.\n- Nunca mostrar el JSON al usuario."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.9,
+      "position": [
+        -2120,
+        2968
+      ],
+      "id": "c692cd60-1a23-4ee3-997d-ca6c12083306",
+      "name": "AI Agent",
+      "executeOnce": true
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-4.1-mini",
+          "mode": "list",
+          "cachedResultName": "gpt-4.1-mini"
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        -2240,
+        3192
+      ],
+      "id": "909caad9-b8bf-4fb2-b94f-65c43eb32765",
+      "name": "OpenAI Chat Model1",
+      "credentials": {
+        "openAiApi": {
+          "id": "y24XiTpiUvoN6ssC",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "toolDescription": "=Úsas esta herramienta para buscar productos de calzado en la base de datos.\nUSAR cuando tengas almenos alguno de estos datos:\"sku\",\"descripcion\",\"marca\",\"talle\",\"subruro.\n\nEjemplo: Si el usuario dice \"zapatillas Nike talle 42\", usar esta herramienta con esos datos.\n",
+        "method": "POST",
+        "url": "https://n8n.calzalindo.com.ar/webhook/buscar",
+        "sendBody": true,
+        "parametersBody": {
+          "values": [
+            {
+              "name": "sku"
+            },
+            {
+              "name": "descripcion"
+            },
+            {
+              "name": "marca"
+            },
+            {
+              "name": "talle"
+            },
+            {
+              "name": "numerocli"
+            },
+            {
+              "name": "genero"
+            },
+            {
+              "name": "subrubro"
+            },
+            {
+              "name": "precio"
+            },
+            {
+              "name": "material"
+            }
+          ]
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+      "typeVersion": 1.1,
+      "position": [
+        -1984,
+        3192
+      ],
+      "id": "9d93d37b-d7bc-4094-acc0-6fad296179b6",
+      "name": "llamarwebhook"
+    },
+    {
+      "parameters": {
+        "updates": [
+          "messages"
+        ],
+        "options": {
+          "messageStatusUpdates": [
+            "all"
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.whatsAppTrigger",
+      "typeVersion": 1,
+      "position": [
+        -2688,
+        3072
+      ],
+      "id": "a7f888ff-ca6a-4eae-b542-ff29a1c57d14",
+      "name": "Recibe Mensaje1",
+      "webhookId": "01fead89-39a6-4ca9-8a1b-60650cd92865",
+      "credentials": {
+        "whatsAppTriggerApi": {
+          "id": "nRBcfQZdSzOGy0se",
+          "name": "WhatsApp OAuth 3462332031"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "send",
+        "phoneNumberId": "678173522038479",
+        "recipientPhoneNumber": "={{ $('Recibe Mensaje1').item.json.contacts[0].wa_id }}",
+        "textBody": "={{ $json.output }}",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.whatsApp",
+      "typeVersion": 1,
+      "position": [
+        -1648,
+        3072
+      ],
+      "id": "943b2d24-eed1-450c-b0e8-bf8fd9de5c9c",
+      "name": "enviarsms",
+      "webhookId": "10d85b52-3f63-4813-9ce1-caaab1dc1615",
+      "executeOnce": true,
+      "credentials": {
+        "whatsAppApi": {
+          "id": "Jon9ZW1DyTNlE1r2",
+          "name": "WhatsApp CLZ N8N 3462332031"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "={{ $('filtrar mensajes de logs').item.json.contacts[0].wa_id }}"
+      },
+      "type": "@n8n/n8n-nodes-langchain.memoryPostgresChat",
+      "typeVersion": 1.3,
+      "position": [
+        -2112,
+        3192
+      ],
+      "id": "5a8331c5-efee-4ae2-a9df-b0072e8ec7c4",
+      "name": "Postgres Chat Memory1",
+      "credentials": {
+        "postgres": {
+          "id": "nFqo90cHZ3ehf88W",
+          "name": "postgres supabase calzalindo"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "send",
+        "phoneNumberId": "678173522038479",
+        "recipientPhoneNumber": "={{ $('Webhook - consku').item.json.body.numerocli }}",
+        "textBody": "=🛒 *Artículo:* {{ $('buscar art por sku').item.json.Descripcion }}\n🏷️ *Marca:* {{ $('buscarMarcaDesc1').item.json.descripcion }}\n🎨 *Color:* {{ $('buscar art por sku').item.json.Color }}\n📏 *Talle:* {{ $('buscar art por sku').item.json.Talle }}\n💲 *Precio Contado:* ${{ $('calcular precios').item.json.data.PrecioContado }}\n💲 *Precio Debito:* ${{ $('calcular precios').item.json.data.PrecioDebito }}\n*Código corto:* {{ $('buscar art por sku').item.json.Codigo }}\n*SKU:* {{ $('Webhook - consku').item.json.body.sku }}\n\n",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.whatsApp",
+      "typeVersion": 1,
+      "position": [
+        -2688,
+        4616
+      ],
+      "id": "4dc2d7a4-5774-4f4d-beb4-a57c9db3a070",
+      "name": "WhatsApp si NO hay foto",
+      "webhookId": "10d85b52-3f63-4813-9ce1-caaab1dc1615",
+      "executeOnce": true,
+      "credentials": {
+        "whatsAppApi": {
+          "id": "Jon9ZW1DyTNlE1r2",
+          "name": "WhatsApp CLZ N8N 3462332031"
+        }
+      },
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "operation": "send",
+        "phoneNumberId": "678173522038479",
+        "recipientPhoneNumber": "={{ $('Webhook - consku').item.json.body.numerocli }}",
+        "messageType": "image",
+        "mediaPath": "useMedian8n",
+        "additionalFields": {
+          "mediaCaption": "=🛒 *Artículo:* {{ $('buscar art por sku').item.json.Descripcion }}\n*Código corto:* {{ $('buscar art por sku').item.json.Codigo }}\n*SKU:* {{ $('Webhook - consku').item.json.body.sku }}\n🏷️ *Marca:* {{ $('buscarMarcaDesc1').item.json.descripcion }}\n🎨 *Color:* {{ $('buscar art por sku').item.json.Color }}\n📏 *Talle:* {{ $('buscar art por sku').item.json.Talle }}\n💲 *Precio Regular:* ${{ $('calcular precios').item.json.PrecioRegular }}\n💲 *Precio Ahora 3 y 6 (6 cuotas):* ${{ Math.round($('calcular precios').item.json.Ahora3y6_6Cuotas / 6) }}\n💲 *Precio Regular (3 cuotas):* ${{ Math.round($('calcular precios').item.json.Ahora3y6_3Cuotas / 3) }}\n💲 *Precio Regular (1 coutas):* ${{ $('calcular precios').item.json.Ahora3y6_1Cuota }}\n💲 *Precio Debito:* ${{ $('calcular precios').item.json.MercadoDebito }}\n💲 *Precio Contado:* ${{ $('calcular precios').item.json.PrecioContado }}\n\n"
+        }
+      },
+      "type": "n8n-nodes-base.whatsApp",
+      "typeVersion": 1,
+      "position": [
+        -896,
+        4200
+      ],
+      "id": "571fcb98-f844-4c6f-9f87-09167ccf317f",
+      "name": "WhatsApp si hay foto",
+      "webhookId": "10d85b52-3f63-4813-9ce1-caaab1dc1615",
+      "executeOnce": true,
+      "credentials": {
+        "whatsAppApi": {
+          "id": "Jon9ZW1DyTNlE1r2",
+          "name": "WhatsApp CLZ N8N 3462332031"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT \n    Codigo,\n    [Descripcion_1] AS Descripcion,\n    [Descripcion_3] AS DescripcionCorta,\n    [Descripcion_4] AS Color,\n    [Descripcion_5] AS Talle,\n    [precio_1] AS Precio1,\n    precio_costo as precio_costo,\n    Marca,\n    Rubro,\n    Fecha_Ult_Compra\nFROM Articulo\nWHERE\n {{ $json.body.sku }} =Codigo_Barra\n"
+      },
+      "type": "n8n-nodes-base.microsoftSql",
+      "typeVersion": 1.1,
+      "position": [
+        -2464,
+        4296
+      ],
+      "id": "aec117e9-0109-4989-910b-4e0277115f55",
+      "name": "buscar art por sku",
+      "credentials": {
+        "microsoftSql": {
+          "id": "YOpMH4AushfczDhx",
+          "name": "Ms gestion 01 "
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const datainicial = $('sinsku').first().json.body;\n\nfunction acortarFrase(frase) {\n  return frase\n    .split(\" \")\n    .map(palabra => palabra.length > 3 ? palabra.slice(0, 3) : palabra)\n    .join(\" \");\n}\n\n// Verificamos que body exista\nif (!datainicial) {\n  throw new Error(\"No se encontró el campo 'body' en la entrada del nodo sinsku.\");\n}\n\nlet descripcion = datainicial.descripcion || \"\";\nlet genero = datainicial.genero || \"\";\nlet cod_genero = 0;\n\n// Determinar código de género\nif (genero.trim() !== \"\") {\n  const g = genero.toString().trim().toUpperCase();\n\n  if ([\"1\", \"DAMA\", \"DAMAS\", \"MUJER\", \"MUJERES\"].includes(g)) {\n    cod_genero = 1;\n  } else if ([\"3\", \"HOMBRE\", \"HOMBRES\", \"CABALLERO\", \"CABALLEROS\"].includes(g)) {\n    cod_genero = 3;\n  } else if ([\"4\", \"NIÑO\", \"NIÑOS\", \"NENE\"].includes(g)) {\n    cod_genero = 4;\n  } else if ([\"5\", \"NIÑA\", \"NIÑAS\", \"NENA\"].includes(g)) {\n    cod_genero = 5;\n  } else if ([\"6\", \"UNISEX\"].includes(g)) {\n    cod_genero = 6;\n  }\n}\n\n// Agregar el campo cod_genero al objeto\ndatainicial.cod_genero = cod_genero;\n\n// Procesar descripción solo si existe y no está vacía\nif (descripcion.trim() !== \"\") {\n  // Reemplazar \"run\" por \"dep\"\n  if (descripcion.toLowerCase().includes(\"run\")) {\n    descripcion = descripcion.replace(/run/gi, \"dep\");\n  }\n\n  // Aplicar acortador\n  datainicial.descripcion = acortarFrase(descripcion);\n}\n\nreturn datainicial;\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2016,
+        3592
+      ],
+      "id": "93fbb6a3-0763-435b-aec0-8e27b53d8c2d",
+      "name": "agregarCodGenero"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT \n  a.Codigo,\n  a.Marca AS codigo_marca,\n  m.Descripcion AS descripcion_marca\nFROM Articulo AS a\nLEFT JOIN Marcas AS m ON a.Marca = m.Codigo\nWHERE a.Codigo = {{ $json.codigo }};\n"
+      },
+      "type": "n8n-nodes-base.microsoftSql",
+      "typeVersion": 1.1,
+      "position": [
+        1344,
+        3568
+      ],
+      "id": "a1314edf-c64d-4ede-8f9b-b3b794f5bdd4",
+      "name": "buscarMarcaDesc",
+      "credentials": {
+        "microsoftSql": {
+          "id": "XxSTFSu1wmv81oLF",
+          "name": "consolidada"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "termine de encontrar tus productos",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        2688,
+        3568
+      ],
+      "id": "4e46b883-6f7a-4331-b35b-693d15a4fe0f",
+      "name": "Respond to Webhook1"
+    },
+    {
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "productos encontrados",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        -672,
+        4200
+      ],
+      "id": "07213424-2e40-490c-882b-3332aeef4a32",
+      "name": "Respond to Webhook2"
+    },
+    {
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "productos encontrados",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        -2464,
+        4616
+      ],
+      "id": "932e49ec-32e0-4da2-8509-0b46563db41b",
+      "name": "Respond to Webhook3",
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "operation": "send",
+        "phoneNumberId": "678173522038479",
+        "recipientPhoneNumber": "={{ $('sinsku').item.json.body.numerocli }}",
+        "textBody": "=No existen articulos que coincidan con los filtros proporcionados",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.whatsApp",
+      "typeVersion": 1,
+      "position": [
+        224,
+        3784
+      ],
+      "id": "39ca0b2c-dbb3-4371-b51a-db1e8cba8a53",
+      "name": "WhatsApp Send",
+      "webhookId": "10d85b52-3f63-4813-9ce1-caaab1dc1615",
+      "executeOnce": true,
+      "credentials": {
+        "whatsAppApi": {
+          "id": "Jon9ZW1DyTNlE1r2",
+          "name": "WhatsApp CLZ N8N 3462332031"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "productos no encontrados o producto sin imagen o stock",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        448,
+        3784
+      ],
+      "id": "34d09b30-6cf7-4f26-9eb6-e72b910af750",
+      "name": "Respond to Webhook4"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "71f0ce28-9efd-4b71-8e6f-0f037b0d0666",
+              "leftValue": "={{ $json.messages[0].text.body }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "exists",
+                "singleValue": true
+              }
+            },
+            {
+              "id": "f4d84386-2ca3-48e7-b0e0-9be3c17e0767",
+              "leftValue": "={{ $json.messages[0].audio }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "exists",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "or"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -2464,
+        3072
+      ],
+      "id": "0877b36e-6e84-4008-a0e4-8d80acca8770",
+      "name": "filtrar mensajes de logs"
+    },
+    {
+      "parameters": {
+        "jsCode": "const productos = $items(\"consultarProductos\").map(i => i.json);\nconst stockItems = $items(\"verificarstock\").map(i => i.json);\n\nconst resultado = productos\n  .map(producto => {\n   const stockEncontrado = stockItems.find(\n  s => String(s.articulo ?? s.Articulo ?? s[\"Artículo\"]).trim() === String(producto.Codigo).trim()\n);\n\nconst stockValue = stockEncontrado?.StockTotal ?? stockEncontrado?.Stock_Total ?? 0;\n    return {\n      ...producto,\n      stock: stockEncontrado ? stockEncontrado.StockTotal : 0\n    };\n  })\n  .filter(p => p.stock > 0);\n\nreturn resultado.map(p => ({ json: p }));\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -224,
+        3616
+      ],
+      "id": "778c5075-7ff2-4c92-b500-18e5b509c45d",
+      "name": "agregarstock"
+    },
+    {
+      "parameters": {
+        "jsCode": "const data=$node['buscar art por sku'].json\n\n// Coeficientes (aranceles)\nconst precioRegular=$input.first().json.Precio1*1.43\nconst contado = -5;\nconst ahora3y6_1 = 10;\nconst ahora3y6_3 = 12;\nconst ahora3y6_6 = 22;\nconst mercadodebito = 5;\n\n\n// 🔸 Redondeo a precio atractivo\nfunction redondearPrecioAtractivo(precio) {\n  // Si el precio es menor a 100, lo dejamos con .99\n  if (precio < 100) {\n    return Math.floor(precio) + 0.99;\n  }\n\n  // Si es menor a 1000, redondeamos a la decena más cercana y terminamos en .90 o .99\n  if (precio < 1000) {\n    const base = Math.round(precio / 10) * 10;\n    return base - 0.10; // ejemplo: 487 → 490 - 0.10 = 489.90\n  }\n\n  // Si es mayor a 1000, redondeamos a la centena más cercana y terminamos en 9 o 90\n  const base = Math.round(precio / 100) * 100;\n  return base - 1; // ejemplo: 2498 → 2500 - 1 = 2499\n}\n\n// 🔸 Cálculo base\nfunction precioAtractivo(precio_base, arancel) {\n  const precio = Math.round(precio_base * (1 + arancel / 100) * 100) / 100;\n  return redondearPrecioAtractivo(precio);\n}\n// Ejemplos de cálculo\ndata.PrecioRegular=redondearPrecioAtractivo(precioRegular);\n\ndata.Ahora3y6_6Cuotas = precioAtractivo(data.Precio1, ahora3y6_6);\ndata.Ahora3y6_3Cuotas = precioAtractivo(data.Precio1, ahora3y6_3);\ndata.Ahora3y6_1Cuota = precioAtractivo(data.Precio1, ahora3y6_1);\ndata.MercadoDebito = precioAtractivo(data.Precio1, mercadodebito);\ndata.PrecioContado = precioAtractivo(data.Precio1, contado);\nreturn data;\n\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2240,
+        4296
+      ],
+      "id": "63af8ea4-3c33-4e85-9830-109aed8e4847",
+      "name": "calcular precios"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "4f22cdcf-fdba-4cbf-802a-fe9ae66d25bd",
+              "leftValue": "={{ $('agregarstock').item.json }}",
+              "rightValue": "",
+              "operator": {
+                "type": "object",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        0,
+        3616
+      ],
+      "id": "eb84cc33-202b-43fe-a060-905d354ea562",
+      "name": "stock"
+    },
+    {
+      "parameters": {
+        "jsCode": "const numero = $('sinsku').first().json.body.numerocli\nreturn $input.all().map(item => ({\n  json: {\n    ...item.json,\n    numerocliente: numero\n  }\n}));"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1792,
+        3568
+      ],
+      "id": "8451a790-6e27-4268-b125-fbf7c7ba9677",
+      "name": "recuperarnumero"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "0753fcaa-2537-4fe7-8156-66a8b35b2936",
+              "leftValue": "={{ $binary.data }}",
+              "rightValue": "",
+              "operator": {
+                "type": "object",
+                "operation": "exists",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -1120,
+        4296
+      ],
+      "id": "326ae0d2-7522-46af-b75c-0038e9e0b078",
+      "name": "si hay foto"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT descripcion\nFROM Marcas as m\nWHERE m.Codigo={{ $json.Marca }}"
+      },
+      "type": "n8n-nodes-base.microsoftSql",
+      "typeVersion": 1.1,
+      "position": [
+        -2016,
+        4296
+      ],
+      "id": "e7cd5bbb-e1bc-429e-94f5-8523c263bde6",
+      "name": "buscarMarcaDesc1",
+      "credentials": {
+        "microsoftSql": {
+          "id": "YOpMH4AushfczDhx",
+          "name": "Ms gestion 01 "
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.url_absoluta }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -1568,
+        4296
+      ],
+      "id": "41f82542-c5f9-450b-ba7d-812eeb7c25f9",
+      "name": "descargar imagen1",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "url": "=http://200.58.109.125:8007/api/imagen/{{ $('calcular precios').item.json.Codigo }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -1792,
+        4296
+      ],
+      "id": "5f214e19-e12a-42fe-bb68-2a9ab8dd798d",
+      "name": "obtener url de imagen",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "url": "=http://200.58.109.125:8007/api/imagen/{{ $json.Codigo }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        224,
+        3568
+      ],
+      "id": "65e890c5-6912-48da-8687-7b7c0d48914f",
+      "name": "obtener url de imagen1",
+      "alwaysOutputData": false,
+      "onError": "continueRegularOutput",
+      "notes": "no hay imagen de este producto"
+    },
+    {
+      "parameters": {
+        "url": "={{ $('obtener url de imagen1').item.json.url_absoluta }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2016,
+        3568
+      ],
+      "id": "68acf29a-dfc5-4044-bb24-a9f002d4ef89",
+      "name": "descargar imagen",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "operation": "send",
+        "phoneNumberId": "678173522038479",
+        "recipientPhoneNumber": "={{ $('recuperarnumero').item.json.numerocliente }}",
+        "messageType": "image",
+        "mediaPath": "useMedian8n",
+        "mediaPropertyName": "=data",
+        "additionalFields": {
+          "mediaCaption": "=🛒 *Artículo:* {{ $json.Descripcion }}\n*Código corto:* {{ $json.Codigo }}\n*SKU:* {{ $('buscar sku').item.json.sku }}\n🏷️ *Marca:*{{ $('buscarMarcaDesc').item.json.descripcion_marca }}\n🎨 *Color:*{{ $('art filtrados').item.json.Color }}\n📏 *Talle:*{{ $('art filtrados').item.json.Talle }}\n📦 *Stock:* {{ $('art filtrados').item.json.stock }}\n💲 *Precio Regular:* ${{ Math.round($('precios').item.json.Precio1 * 1.43) }}\n💲 *Precio Ahora 3 y 6 (6 cuotas):* ${{ Math.round($('precios').item.json.Ahora3y6_6Cuotas / 6) }}\n💲 *Precio Ahora 3 y 6 (3 cuotas):* ${{ Math.round($('precios').item.json.Ahora3y6_3Cuotas / 3) }}\n💲 *Precio Ahora 3 y 6 (1 cuota):* ${{ $json.Ahora3y6_1Cuota }}\n💲 *Precio Débito:* ${{ $('precios').item.json.MercadoDebito }}\n💲 *Precio Contado:* ${{ $('precios').item.json.PrecioContado }}\n"
+        }
+      },
+      "type": "n8n-nodes-base.whatsApp",
+      "typeVersion": 1,
+      "position": [
+        2464,
+        3568
+      ],
+      "id": "b766a84d-57ef-42f4-be4c-e60fbccc20fb",
+      "name": "WhatsApp Send3",
+      "webhookId": "10d85b52-3f63-4813-9ce1-caaab1dc1615",
+      "executeOnce": false,
+      "credentials": {
+        "whatsAppApi": {
+          "id": "Jon9ZW1DyTNlE1r2",
+          "name": "WhatsApp CLZ N8N 3462332031"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "multiStep",
+        "operations": {
+          "operations": [
+            {
+              "operation": "resize",
+              "width": 100,
+              "height": 100,
+              "resizeOption": "percent"
+            }
+          ]
+        },
+        "options": {
+          "format": "jpeg"
+        }
+      },
+      "type": "n8n-nodes-base.editImage",
+      "typeVersion": 1,
+      "position": [
+        2240,
+        3568
+      ],
+      "id": "0b4bad99-a137-4346-bfbc-190ef527a5d4",
+      "name": "cambiar formato",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "operation": "multiStep",
+        "operations": {
+          "operations": [
+            {
+              "operation": "resize",
+              "width": 100,
+              "height": 100,
+              "resizeOption": "percent"
+            }
+          ]
+        },
+        "options": {
+          "format": "jpeg"
+        }
+      },
+      "type": "n8n-nodes-base.editImage",
+      "typeVersion": 1,
+      "position": [
+        -1344,
+        4296
+      ],
+      "id": "08265e43-7eac-4aaa-937c-17be1e017fac",
+      "name": "cambiar formato1",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const datainicial = $('Merge').first().json;\n\nfunction acortarFrase(frase) {\n  return frase\n    .split(\" \")\n    .map(palabra => palabra.length > 3 ? palabra.slice(0, 3) : palabra)\n    .join(\" \");\n}\n\nlet descripcion = datainicial.descripcion;\n\n// Si existe y no está vacío\nif (descripcion && descripcion.trim() !== \"\") {\n\n  // Si contiene \"run\" en cualquier parte, reemplazar por \"dep\"\n  if (descripcion.toLowerCase().includes(\"run\")) {\n    descripcion = descripcion.replace(/run/gi, \"dep\");\n  }\n\n  // Aplicar el acortador\n  datainicial.descripcion = acortarFrase(descripcion);\n\n  return datainicial;\n} else {\n  // Si está vacío, devuelvo igual algo para que el flujo no se corte\n  return datainicial;\n}\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1568,
+        3688
+      ],
+      "id": "09cd7709-44df-49c3-b5bb-692628e4bc5c",
+      "name": "recortarDescripcion"
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $('sinsku').first().json.body;\n\n// Diccionario de subrubros\nconst subrubros = {\n  \"1\": \"ALPARGATAS\",\n  \"2\": \"BORCEGOS\",\n  \"3\": \"MAQUILLAJE\",\n  \"5\": \"CHATA\",\n  \"6\": \"CHINELA\",\n  \"7\": \"MOCASINES\",\n  \"10\": \"ACC. DEPORTIVOS\",\n  \"11\": \"OJOTAS\",\n  \"12\": \"SANDALIAS\",\n  \"13\": \"ZUECOS\",\n  \"15\": \"BOTAS\",\n  \"17\": \"GUILLERMINA\",\n  \"18\": \"CARTERAS\",\n  \"19\": \"BOTINES TAPON \",\n  \"20\": \"ZAPATO DE VESTIR\",\n  \"21\": \"CASUAL\",\n  \"22\": \"CANILLERA\",\n  \"23\": \"PANTALON\",\n  \"24\": \"PARAGUAS\",\n  \"25\": \"MOCHILAS\",\n  \"26\": \"BILLETERAS\",\n  \"27\": \"PLANTILLAS\",\n  \"28\": \"CORDONES\",\n  \"29\": \"MEDIAS\",\n  \"30\": \"BOLSOS\",\n  \"32\": \"COSMETICA DE CALZADO\",\n  \"33\": \"PELOTAS\",\n  \"35\": \"PANCHA\",\n  \"37\": \"FRANCISCANA\",\n  \"38\": \"MERREL\",\n  \"39\": \"ACC. MARRO\",\n  \"40\": \"NAUTICO\",\n  \"45\": \"BOTINES PISTA\",\n  \"46\": \"CAMPERAS \",\n  \"47\": \"ZAPATILLA RUNNING\",\n  \"48\": \"ZAPATILLA TENNIS\",\n  \"49\": \"ZAPATILLA TRAINING\",\n  \"50\": \"ZAPATILLA BASKET\",\n  \"51\": \"ZAPATILLA OUTDOOR\",\n  \"52\": \"ZAPATILLA CASUAL\",\n  \"53\": \"ZAPATILLA SKATER\",\n  \"54\": \"BOTIN INDOOR\",\n  \"55\": \"ZAPATILLA SNEAKERS\",\n  \"56\": \"FIESTA \",\n  \"57\": \"REMERAS\",\n  \"58\": \"CINTOS\",\n  \"59\": \"ROLLER/PATIN \",\n  \"60\": \"PANTUFLA\",\n  \"61\": \"BUZO\",\n  \"62\": \"CALZA\",\n  \"63\": \"MALLA \",\n  \"64\": \"ZAPATO DE TRABAJO\",\n  \"65\": \"BOTA DE LLUVIA\",\n  \"66\": \"PROMO COMPRA\",\n  \"67\": \"PROMO FIN DE TEMPORADA\",\n  \"68\": \"VALIJAS\",\n  \"69\": \"ZAPATILLA HOCKEY\",\n  \"70\": \"BOXER\"\n};\n\n// Diccionario de materiales\nconst materiales = {\n  \"1\": \"CUERO\",\n  \"2\": \"LONA\",\n  \"3\": \"Z USAR PU o PVC NO VINIL\",\n  \"4\": \"GAMUZA\",\n  \"5\": \"PU\",\n  \"6\": \"PECARI\",\n  \"7\": \"CARPINCHO\",\n  \"8\": \"JEAN\",\n  \"9\": \"TOALLA\",\n  \"10\": \"RAZO\",\n  \"11\": \"P.V.C.\",\n  \"12\": \"Z USAR PU o PVC NO V-TEX\",\n  \"13\": \"POLAR\",\n  \"14\": \"Z USAR CUERO O PU BADANA\",\n  \"15\": \"MACRAME\",\n  \"16\": \"Z USAR TELA NO YACKARD\",\n  \"17\": \"TELA\",\n  \"18\": \"GABARDINA\",\n  \"19\": \"PAÑO\",\n  \"20\": \"Z Esto es para capelladaSuela goma ALTA ACORD\",\n  \"21\": \"Z Esto es para capelladasuela de suela-cuero\",\n  \"22\": \"Z Esto es para capelladaSUELA GOMA ALTA MOCASIN\",\n  \"23\": \"Z Esto es para capellada SUELA GOMA P CRUZ MOC\",\n  \"24\": \"Z Esto es para capellada sUELA GOMA SLACK MOC\",\n  \"25\": \"Z Esto es para capellada SUELA GOMA SLACK ACORD\",\n  \"26\": \"Z Esto es para capellada SUELA SUELA HORMA ANCHA\",\n  \"27\": \"Z Esto es para capellada SUELA SUELA SLACK MOC\",\n  \"28\": \"Z Esto es para capellada S/S P CRUZ ACORD\",\n  \"29\": \"Z Esto es para capellada SUELA SUELA P CRUZ MOC\",\n  \"30\": \"Z USAR TELA NO LUREX\",\n  \"31\": \"Z USAR TELA NO ACETATO\",\n  \"32\": \"Z USAR TELA NO POLYESTER\",\n  \"33\": \"CORDEROY\",\n  \"34\": \"MICROFIBRA - ECOGAMUZA\",\n  \"35\": \"Z USAR PELUCHE  NO USAR PLUSH\",\n  \"36\": \"PELUCHE\",\n  \"37\": \"Z NO USAR SOGASOGA\",\n  \"38\": \"Z USAR MICROFIBRA  NO USAR PANA\",\n  \"39\": \"GOMA EVA\",\n  \"40\": \"Z USAR GAMUZA NO DESCARNE\",\n  \"41\": \"LYCRA\",\n  \"42\": \"NEOPRENE\"\n};\n\n// --- Subrubro ---\nconst subrubroInput = (input.subrubro || \"\").trim().toUpperCase();\nlet codSubrubro = \"\";\nfor (const [codigo, descripcion] of Object.entries(subrubros)) {\n  if (descripcion.trim().toUpperCase() === subrubroInput) {\n    codSubrubro = codigo;\n    break;\n  }\n}\n\n// --- Material ---\nconst materialInput = (input.material || \"\").trim().toUpperCase();\nlet codMaterial = \"\";\nfor (const [codigo, descripcion] of Object.entries(materiales)) {\n  if (descripcion.trim().toUpperCase() === materialInput) {\n    codMaterial = codigo;\n    break;\n  }\n}\n\n// --- Resultado ---\nconst salida = {\n  ...input,\n  cod_subrubro: codSubrubro,\n  cod_material: codMaterial\n};\n\nreturn [{ json: salida }];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2016,
+        3400
+      ],
+      "id": "34bab763-4bad-4c5b-92f2-855343f99ac1",
+      "name": "buscarSubrubro"
+    },
+    {
+      "parameters": {
+        "jsCode": "// 1️⃣ Obtener el body desde el Webhook\nconst data = { ...$('sinsku').item.json.body };\n\n// 2️⃣ Normalizar la marca si existe\nif (data.marca && typeof data.marca === 'string') {\n  // Eliminar tildes\n  data.marca = data.marca.normalize('NFD').replace(/[\\u0300-\\u036f]/g, '');\n  // Quitar espacios extremos y pasar a mayúsculas\n  data.marca = data.marca.trim().toUpperCase();\n  \n  // 3️⃣ Si la marca es GO (en cualquier combinación de mayúsculas/minúsculas)\n  if (data.marca.toLowerCase() === \"go\" ) {\n    data.marca = \"GO by CLZ\";\n  }\n}\n\n// 4️⃣ Agregar código desde la entrada anterior\ndata.codigomarca = $input.first().json.codigo;\n\n// 5️⃣ Devolver el JSON completo modificado\nreturn [{ json: data }];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2464,
+        3976
+      ],
+      "id": "57613438-d814-417a-b4c5-7d2d98eeb395",
+      "name": "normalizarMarca"
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = $('normalizarMarca').first().json;\n\n// Normalizamos la marca si es GO o go\nlet marca = data.marca;\nif (marca && marca.toLowerCase() === \"go\") {\n  marca = \"GO by CLZ\";\n  data.marca = marca;\n}\n\n// Obtener el input anterior\nconst input = $input.first().json;\n\n// Si el input está vacío o no tiene 'codigo', usar 0\ndata.codigomarca = (input && input.codigo !== undefined) ? input.codigo : 0;\n\nreturn data;\n\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2016,
+        3976
+      ],
+      "id": "0204a904-e5ba-492d-b202-15caa09ee48a",
+      "name": "agregarCodMarca"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "ed0302be-b9fd-4d2c-97ed-2d912fc262ec",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -2688,
+        4296
+      ],
+      "id": "b9a32814-4876-4c2c-8269-2b11e49620d0",
+      "name": "Webhook - consku",
+      "webhookId": "ed0302be-b9fd-4d2c-97ed-2d912fc262ec"
+    },
+    {
+      "parameters": {
+        "content": "## normalizo datos de entrada y genero una consuta dinamica",
+        "height": 800,
+        "width": 1200,
+        "color": 5
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -2568,
+        3336
+      ],
+      "typeVersion": 1,
+      "id": "9ba492ae-47df-4d63-b1e9-076999c0c806",
+      "name": "Sticky Note"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "buscar",
+        "responseMode": "responseNode",
+        "options": {
+          "rawBody": false
+        }
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -2688,
+        3688
+      ],
+      "id": "4830e790-4674-4fd2-b837-5d6779fe1ac3",
+      "name": "sinsku",
+      "webhookId": "2d024989-8589-4d80-9fee-72b2ce287eb6"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Obtener datos del nodo anterior\nconst datainicial = $('sinsku').first().json.body;\n\n// Diccionario de materiales\nconst materiales = {\n  \"1\": \"CUERO\",\n  \"2\": \"LONA\",\n  \"3\": \"Z USAR PU o PVC NO VINIL\",\n  \"4\": \"GAMUZA\",\n  \"5\": \"PU\",\n  \"6\": \"PECARI\",\n  \"7\": \"CARPINCHO\",\n  \"8\": \"JEAN\",\n  \"9\": \"TOALLA\",\n  \"10\": \"RAZO\",\n  \"11\": \"P.V.C.\",\n  \"12\": \"Z USAR PU o PVC NO V-TEX\",\n  \"13\": \"POLAR\",\n  \"14\": \"Z USAR CUERO O PU BADANA\",\n  \"15\": \"MACRAME\",\n  \"16\": \"Z USAR TELA NO YACKARD\",\n  \"17\": \"TELA\",\n  \"18\": \"GABARDINA\",\n  \"19\": \"PAÑO\",\n  \"20\": \"Z Esto es para capelladaSuela goma ALTA ACORD\",\n  \"21\": \"Z Esto es para capelladasuela de suela-cuero\",\n  \"22\": \"Z Esto es para capelladaSUELA GOMA ALTA MOCASIN\",\n  \"23\": \"Z Esto es para capellada SUELA GOMA P CRUZ MOC\",\n  \"24\": \"Z Esto es para capellada sUELA GOMA SLACK MOC\",\n  \"25\": \"Z Esto es para capellada SUELA GOMA SLACK ACORD\",\n  \"26\": \"Z Esto es para capellada SUELA SUELA HORMA ANCHA\",\n  \"27\": \"Z Esto es para capellada SUELA SUELA SLACK MOC\",\n  \"28\": \"Z Esto es para capellada S/S P CRUZ ACORD\",\n  \"29\": \"Z Esto es para capellada SUELA SUELA P CRUZ MOC\",\n  \"30\": \"Z USAR TELA NO LUREX\",\n  \"31\": \"Z USAR TELA NO ACETATO\",\n  \"32\": \"Z USAR TELA NO POLYESTER\",\n  \"33\": \"CORDEROY\",\n  \"34\": \"MICROFIBRA - ECOGAMUZA\",\n  \"35\": \"Z USAR PELUCHE  NO USAR PLUSH\",\n  \"36\": \"PELUCHE\",\n  \"37\": \"Z NO USAR SOGASOGA\",\n  \"38\": \"Z USAR MICROFIBRA  NO USAR PANA\",\n  \"39\": \"GOMA EVA\",\n  \"40\": \"Z USAR GAMUZA NO DESCARNE\",\n  \"41\": \"LYCRA\",\n  \"42\": \"NEOPRENE\"\n};\n\n// Inicializamos\nlet cod_material = \"0\";\n\n// Si hay material en el body\nif (datainicial.material && datainicial.material.trim() !== \"\") {\n  const mat = datainicial.material.trim().toUpperCase();\n\n  // Buscar clave cuyo valor coincida (parcialmente o completo)\n  const claveEncontrada = Object.keys(materiales).find(\n    key => materiales[key].toUpperCase().includes(mat)\n  );\n\n  if (claveEncontrada) {\n    cod_material = claveEncontrada;\n  }\n}\n\n// Agregamos el campo nuevo (como string)\ndatainicial.cod_material = cod_material;\n\n// Devolvemos el JSON actualizado\nreturn datainicial;\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2016,
+        3784
+      ],
+      "id": "06356a78-975f-4285-88f0-773f4278c55c",
+      "name": "agregarMaterial"
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineByPosition",
+        "numberInputs": 4,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        -1792,
+        3656
+      ],
+      "id": "0f5ab06b-83ef-4f38-8295-67598a8e1840",
+      "name": "Merge"
+    },
+    {
+      "parameters": {
+        "toolDescription": "=Úsas esta herramienta para buscar productos de calzado en la base de datos.\nUSAR cuando tengas este dato:\"sku\"\n\nEjemplo: Si el usuario dice \"zapatillas Nike talle 42 sku 769190791536\", usar esta herramienta con ese dato.\n",
+        "method": "POST",
+        "url": "https://n8n.calzalindo.com.ar/webhook/ed0302be-b9fd-4d2c-97ed-2d912fc262ec",
+        "sendBody": true,
+        "parametersBody": {
+          "values": [
+            {
+              "name": "sku"
+            },
+            {
+              "name": "descripcion"
+            },
+            {
+              "name": "marca"
+            },
+            {
+              "name": "talle"
+            },
+            {
+              "name": "numerocli"
+            },
+            {
+              "name": "genero"
+            },
+            {
+              "name": "subrubro"
+            },
+            {
+              "name": "precio"
+            },
+            {
+              "name": "material"
+            }
+          ]
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+      "typeVersion": 1.1,
+      "position": [
+        -1856,
+        3192
+      ],
+      "id": "67aa58d2-e096-4906-82d2-71c781918d41",
+      "name": "llamarwebhooksku"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "27397380-498c-4665-9251-056a88bd2d82",
+              "leftValue": "={{ $('consultarProductos').item.json }}",
+              "rightValue": "",
+              "operator": {
+                "type": "object",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -672,
+        3688
+      ],
+      "id": "20fe737e-b889-4251-96f4-616a5daf52e4",
+      "name": "If1"
+    },
+    {
+      "parameters": {
+        "content": "##REALIZO LA BUSQUEDA",
+        "height": 800,
+        "width": 400
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -1272,
+        3048
+      ],
+      "typeVersion": 1,
+      "id": "bb9185f5-4c76-4613-a401-8e6360e4f369",
+      "name": "Sticky Note2"
+    },
+    {
+      "parameters": {
+        "content": "##CONTROLO QUE TENGA STOCK",
+        "height": 800,
+        "width": 432,
+        "color": 7
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -840,
+        3048
+      ],
+      "typeVersion": 1,
+      "id": "c1c01cc0-9ca1-474d-bfb8-81158fe0c16e",
+      "name": "Sticky Note3"
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = $items(\"art filtrados\").map(item => item.json);\n\n// Coeficientes (aranceles)\nconst contado = -5;\nconst ahora3y6_1 = 10;\nconst ahora3y6_3 = 12;\nconst ahora3y6_6 = 22;\nconst mercadodebito = 5;\n\nfunction precioAtractivo(precio_base, arancel) {\n  return Math.round(precio_base * (1 + arancel / 100));\n}\n\n// Procesar cada artículo y agregarle los nuevos precios\nconst resultado = data.map(art => {\n  const precioBase = art.Precio1 || 0;\n\n  return {\n    ...art,\n    PrecioContado: precioAtractivo(precioBase, contado),\n    Ahora3y6_1Cuota: precioAtractivo(precioBase, ahora3y6_1),\n    Ahora3y6_3Cuotas: precioAtractivo(precioBase, ahora3y6_3),\n    Ahora3y6_6Cuotas: precioAtractivo(precioBase, ahora3y6_6),\n    MercadoDebito: precioAtractivo(precioBase, mercadodebito)\n  };\n});\n\n// Devolver en formato n8n\nreturn resultado.map(r => ({ json: r }));\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1568,
+        3568
+      ],
+      "id": "64a7b7a2-74a8-4d08-8d03-a4215bef4fed",
+      "name": "precios"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT \n    articulo,\n    SUM(stock_actual) AS StockTotal\nFROM \n    stock_por_codigo\nWHERE \n    articulo = {{ $json.Codigo }}\n    AND deposito NOT IN (199, 198, 4)\nGROUP BY \n    articulo\nHAVING \n    SUM(stock_actual) > 0;\n"
+      },
+      "type": "n8n-nodes-base.microsoftSql",
+      "typeVersion": 1.1,
+      "position": [
+        -448,
+        3616
+      ],
+      "id": "4ad7a0d4-05fc-4557-beb0-3267540fc718",
+      "name": "verificarstock",
+      "executeOnce": false,
+      "alwaysOutputData": false,
+      "retryOnFail": false,
+      "notesInFlow": true,
+      "credentials": {
+        "microsoftSql": {
+          "id": "otCV2Q8DGM5v2Nak",
+          "name": "omicronvt"
+        }
+      },
+      "onError": "continueRegularOutput",
+      "notes": "arreglar la actualizacion de la bd ya que hay productos que no aparecen"
+    },
+    {
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "no hay imagen para el producto",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        -896,
+        4392
+      ],
+      "id": "f95ee865-f3ad-44de-95cc-52c74a7f513e",
+      "name": "Respond to Webhook"
+    },
+    {
+      "parameters": {
+        "content": "##busqueda por sku",
+        "height": 304,
+        "width": 2816,
+        "color": 3
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -3040,
+        4248
+      ],
+      "typeVersion": 1,
+      "id": "83507933-ae2a-41bb-a6af-53d9e381d80d",
+      "name": "Sticky Note4"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "7618c12f-f72e-446c-9efc-76e4ac6c8fc2",
+              "name": "contador",
+              "value": 0,
+              "type": "number"
+            }
+          ]
+        },
+        "options": {
+          "ignoreConversionErrors": true,
+          "dotNotation": false
+        }
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -1344,
+        3688
+      ],
+      "id": "7678f20b-e336-4475-9df0-996c9044dacf",
+      "name": "contador"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "3c8cdc58-5963-4b47-93f7-879ebbb51d65",
+              "leftValue": "={{ $json.error }}",
+              "rightValue": 404,
+              "operator": {
+                "type": "object",
+                "operation": "notExists",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2.2,
+      "position": [
+        448,
+        3568
+      ],
+      "id": "618ebfe4-e5f0-4229-9147-bfd4fc9703a6",
+      "name": "Filter"
+    },
+    {
+      "parameters": {
+        "maxItems": 5
+      },
+      "type": "n8n-nodes-base.limit",
+      "typeVersion": 1,
+      "position": [
+        672,
+        3568
+      ],
+      "id": "95a2b6bf-2eef-41fa-80ad-9ea770906632",
+      "name": "Limit"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Obtener todos los items de los nodos anteriores\nconst articulos = $items(\"agregarstock\").map(item => item.json);\nconst limit = $items(\"Limit\").map(item => item.json);\n\n// Crear un conjunto con los códigos de los items de \"Limit\"\nconst codigosLimit = new Set(limit.map(l => l.codigo));\n\n// Filtrar los artículos cuyo código esté en el conjunto\nconst filtrados = articulos.filter(a => codigosLimit.has(String(a.Codigo)));\n\n// Devolver el resultado en formato n8n\nreturn filtrados.map(a => ({ json: a }));\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        896,
+        3568
+      ],
+      "id": "fd3a734c-637c-46d6-8098-80e7a16442a5",
+      "name": "art filtrados"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "codigo_marca": {
+      "main": [
+        [
+          {
+            "node": "agregarCodMarca",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "consultaDinamica": {
+      "main": [
+        [
+          {
+            "node": "consultarProductos",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "consultarProductos": {
+      "main": [
+        [
+          {
+            "node": "If1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "buscar sku": {
+      "main": [
+        [
+          {
+            "node": "buscarMarcaDesc",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "enviarsms",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model1": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "llamarwebhook": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Recibe Mensaje1": {
+      "main": [
+        [
+          {
+            "node": "filtrar mensajes de logs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Postgres Chat Memory1": {
+      "ai_memory": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "WhatsApp si hay foto": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "buscar art por sku": {
+      "main": [
+        [
+          {
+            "node": "calcular precios",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "agregarCodGenero": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "buscarMarcaDesc": {
+      "main": [
+        [
+          {
+            "node": "precios",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "WhatsApp si NO hay foto": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "WhatsApp Send": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook4",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "filtrar mensajes de logs": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "agregarstock": {
+      "main": [
+        [
+          {
+            "node": "stock",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "calcular precios": {
+      "main": [
+        [
+          {
+            "node": "buscarMarcaDesc1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "stock": {
+      "main": [
+        [
+          {
+            "node": "obtener url de imagen1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "WhatsApp Send",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Respond to Webhook1": {
+      "main": [
+        []
+      ]
+    },
+    "recuperarnumero": {
+      "main": [
+        [
+          {
+            "node": "descargar imagen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "si hay foto": {
+      "main": [
+        [
+          {
+            "node": "WhatsApp si hay foto",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "buscarMarcaDesc1": {
+      "main": [
+        [
+          {
+            "node": "obtener url de imagen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "descargar imagen1": {
+      "main": [
+        [
+          {
+            "node": "cambiar formato1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "obtener url de imagen": {
+      "main": [
+        [
+          {
+            "node": "descargar imagen1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "obtener url de imagen1": {
+      "main": [
+        [
+          {
+            "node": "Filter",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "descargar imagen": {
+      "main": [
+        [
+          {
+            "node": "cambiar formato",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "WhatsApp Send3": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "cambiar formato": {
+      "main": [
+        [
+          {
+            "node": "WhatsApp Send3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "cambiar formato1": {
+      "main": [
+        [
+          {
+            "node": "si hay foto",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "recortarDescripcion": {
+      "main": [
+        [
+          {
+            "node": "contador",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "buscarSubrubro": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "normalizarMarca": {
+      "main": [
+        [
+          {
+            "node": "codigo_marca",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "agregarCodMarca": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 3
+          }
+        ]
+      ]
+    },
+    "Webhook - consku": {
+      "main": [
+        [
+          {
+            "node": "buscar art por sku",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "sinsku": {
+      "main": [
+        [
+          {
+            "node": "buscarSubrubro",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "agregarCodGenero",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "normalizarMarca",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "agregarMaterial",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "agregarMaterial": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 2
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "node": "recortarDescripcion",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "llamarwebhooksku": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If1": {
+      "main": [
+        [
+          {
+            "node": "verificarstock",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "WhatsApp Send",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "precios": {
+      "main": [
+        [
+          {
+            "node": "recuperarnumero",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "verificarstock": {
+      "main": [
+        [
+          {
+            "node": "agregarstock",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "contador": {
+      "main": [
+        [
+          {
+            "node": "consultaDinamica",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter": {
+      "main": [
+        [
+          {
+            "node": "Limit",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Limit": {
+      "main": [
+        [
+          {
+            "node": "art filtrados",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "art filtrados": {
+      "main": [
+        [
+          {
+            "node": "buscar sku",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "America/Argentina/Buenos_Aires",
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "versionId": "279afd8e-fc64-4b9b-9dbb-81c04640110a",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "222127bd61432024b743b7c80fd78be3d217cd7dc9aece772cb095e64c7c94c4"
+  },
+  "id": "CHAA3Oa7oTSGVbnS",
+  "tags": []
+}

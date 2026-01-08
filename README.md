@@ -7,6 +7,7 @@ Fue **uno de mis primeros workflows**, por lo que **presenta falencias a nivel l
 
 El objetivo principal del flujo es permitir que un usuario consulte productos de calzado mediante WhatsApp utilizando lenguaje natural, aplicar filtros (marca, talle, precio, SKU, etc.) y devolver resultados desde una base de datos empresarial.
 
+![Workflow WhatsApp Bot](whatssapbot.png)
 ---
 
 ## Objetivo del workflow
@@ -29,6 +30,7 @@ El objetivo principal del flujo es permitir que un usuario consulte productos de
 - **PostgreSQL** (memoria conversacional)
 - **HTTP APIs internas** (imágenes de productos)
 - **JavaScript (Code Nodes)** para lógica custom
+
 
 ---
 
